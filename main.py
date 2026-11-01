@@ -1,17 +1,18 @@
+import re
 import torch
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from omegaconf import OmegaConf
 from pydantic import BaseModel, Field
-from transformers import MarianMTModel, MarianTokenizer
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
 class MachineTranslation:
     def __init__(self, config_path):
         self.config = OmegaConf.load(config_path)
-        self.tokenizer = MarianTokenizer.from_pretrained(self.config.model_path)
-        self.model = MarianMTModel.from_pretrained(self.config.model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model_path)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.config.model_path)
 
     def __call__(self, text: str) -> str:
         inputs = self.tokenizer(text, return_tensors="pt", padding=True)
@@ -64,14 +65,23 @@ def health_check():
 
 @app.post("/predict")
 def translate_text(payload: TranslationRequest):
-    if not payload.text or not payload.text.strip():
+    cleaned_text = payload.text.strip()
+
+    if not cleaned_text:
         raise HTTPException(
             status_code=400,
             detail="Error: Input Japanese text cannot be empty!",
         )
 
+    # Check if input contains at least one Japanese character (Hiragana, Katakana, or Kanji)
+    if not re.search(r"[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]", cleaned_text):
+        raise HTTPException(
+            status_code=400,
+            detail="Error: Input must contain valid Japanese characters (Hiragana, Katakana, or Kanji)!",
+        )
+
     try:
-        translated_result = translator(payload.text)
+        translated_result = translator(cleaned_text)
 
         return {
             "status": "success",
