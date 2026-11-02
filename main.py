@@ -73,7 +73,6 @@ def translate_text(payload: TranslationRequest):
             detail="Error: Input Japanese text cannot be empty!",
         )
 
-    # Check if input contains at least one Japanese character (Hiragana, Katakana, or Kanji)
     if not re.search(r"[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]", cleaned_text):
         raise HTTPException(
             status_code=400,
